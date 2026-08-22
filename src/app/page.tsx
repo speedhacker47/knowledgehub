@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [activeCategory, setActiveCategory] = useState<Category>('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+
   const activeItems = items.filter(item => !item.isDeleted);
   const displayedItems = activeItems.filter(item => activeCategory === 'All' ? true : item.type === activeCategory);
 
