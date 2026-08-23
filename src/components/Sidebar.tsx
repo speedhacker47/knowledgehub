@@ -19,14 +19,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
     userProfile, 
     syncStatus, 
     lastSynced, 
+    storageQuota,
     connectGoogle, 
     syncWithDrive 
   } = useData();
 
-  const activeTasksCount = items.filter(item => !item.isDeleted && item.type === 'Task').length;
+  const activeTasksCount = items.filter(item => !item.isDeleted && item.type === 'Task' && !item.isCompleted).length;
   const deletedCount = items.filter(item => item.isDeleted).length;
 
-  // Close sidebar on escape key press
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen && onClose) {
@@ -37,7 +37,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  // Lock body scroll when mobile drawer is open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -123,35 +122,53 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
           })}
         </nav>
 
-        {/* Google Drive Status Widget */}
+        {/* Google Drive Status & Storage Quota Widget */}
         <div className={styles.cloudSection}>
           {isGoogleConnected ? (
-            <div className={styles.cloudHeader}>
-              <div className={styles.userBadge}>
-                {userProfile?.picture ? (
-                  <img src={userProfile.picture} alt={userProfile.name} className={styles.avatar} />
-                ) : (
-                  <div className={styles.avatarPlaceholder}>
-                    {userProfile?.name?.charAt(0) || 'G'}
+            <>
+              <div className={styles.cloudHeader}>
+                <div className={styles.userBadge}>
+                  {userProfile?.picture ? (
+                    <img src={userProfile.picture} alt={userProfile.name} className={styles.avatar} />
+                  ) : (
+                    <div className={styles.avatarPlaceholder}>
+                      {userProfile?.name?.charAt(0) || 'G'}
+                    </div>
+                  )}
+                  <div className={styles.userInfo}>
+                    <span className={styles.userName}>{userProfile?.name || 'Google Account'}</span>
+                    <span className={styles.syncStatusText}>
+                      <span className={`${styles.syncDot} ${syncStatus === 'syncing' ? styles.syncing : syncStatus === 'error' ? styles.error : ''}`} />
+                      {syncStatus === 'syncing' ? 'Syncing...' : syncStatus === 'error' ? 'Sync error' : lastSynced ? `Synced ${lastSynced}` : 'Drive Synced'}
+                    </span>
                   </div>
-                )}
-                <div className={styles.userInfo}>
-                  <span className={styles.userName}>{userProfile?.name || 'Google User'}</span>
-                  <span className={styles.syncStatusText}>
-                    <span className={`${styles.syncDot} ${syncStatus === 'syncing' ? styles.syncing : syncStatus === 'error' ? styles.error : ''}`} />
-                    {syncStatus === 'syncing' ? 'Syncing...' : syncStatus === 'error' ? 'Sync error' : lastSynced ? `Synced ${lastSynced}` : 'Drive Synced'}
-                  </span>
                 </div>
+                <button 
+                  type="button"
+                  className={styles.syncBtn} 
+                  onClick={() => syncWithDrive()} 
+                  title="Sync now with Google Drive"
+                >
+                  <SyncIcon isSpinning={syncStatus === 'syncing'} />
+                </button>
               </div>
-              <button 
-                type="button"
-                className={styles.syncBtn} 
-                onClick={() => syncWithDrive()} 
-                title="Sync now with Google Drive"
-              >
-                <SyncIcon isSpinning={syncStatus === 'syncing'} />
-              </button>
-            </div>
+
+              {/* Storage Quota Meter */}
+              {storageQuota && (
+                <div className={styles.quotaBox}>
+                  <div className={styles.quotaLabelRow}>
+                    <span>Drive Storage</span>
+                    <span>{storageQuota.formattedUsage} / {storageQuota.formattedLimit}</span>
+                  </div>
+                  <div className={styles.quotaProgressTrack}>
+                    <div 
+                      className={styles.quotaProgressBar} 
+                      style={{ width: `${Math.min(100, storageQuota.usagePercent)}%` }} 
+                    />
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <button
               type="button"
@@ -159,7 +176,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
               onClick={() => connectGoogle()}
             >
               <GoogleDriveSmallIcon />
-              <span>Connect Drive</span>
+              <span>Connect Google Drive</span>
             </button>
           )}
         </div>
@@ -181,10 +198,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => 
   );
 };
 
-const HomeIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>;
-const CheckCircleIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>;
-const TrashIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
-const SettingsIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
+const HomeIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>;
+const CheckCircleIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>;
+const TrashIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>;
+const SettingsIcon = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>;
 const SyncIcon = ({ isSpinning }: { isSpinning?: boolean }) => (
   <svg 
     width="16" 

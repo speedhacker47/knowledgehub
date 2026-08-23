@@ -1,13 +1,37 @@
-export type Category = 'All' | 'Video' | 'PDF' | 'Message' | 'Web Link' | 'Task';
+export type Category = 
+  | 'All' 
+  | 'Note' 
+  | 'Web Link' 
+  | 'Document' 
+  | 'PDF' 
+  | 'Video' 
+  | 'Audio' 
+  | 'Task' 
+  | 'Message';
 
 export interface HubItem {
   id: string;
   type: Category;
   title: string;
-  content: string; // URL, WhatsApp text, or task details / Drive web link
-  previewImage?: string; // Optional thumbnail
+  content: string; // URL, short summary, or preview text
+  noteBody?: string; // Rich detailed text for Notes
+  previewImage?: string; // Optional thumbnail / favicon
   dateAdded: string;
   isDeleted: boolean;
+  
+  // Customization & Organization
+  isPinned?: boolean;
+  tags?: string[];
+  color?: string; // e.g., 'default' | 'amber' | 'emerald' | 'blue' | 'violet' | 'rose'
+  
+  // Tasks
+  dueDate?: string;
+  isCompleted?: boolean;
+
+  // Audio / Voice Memos
+  audioDuration?: number; // duration in seconds
+  
+  // Google Drive Metadata
   driveFileId?: string; // Google Drive file ID if stored in Drive
   driveWebViewLink?: string; // Direct link to open/preview in Google Drive
   driveWebContentLink?: string; // Direct download link
@@ -23,5 +47,13 @@ export interface GoogleUserProfile {
   picture: string;
 }
 
-export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'disconnected';
+export interface DriveStorageQuota {
+  limitBytes: number;
+  usageBytes: number;
+  usageInDriveBytes: number;
+  usagePercent: number;
+  formattedLimit: string;
+  formattedUsage: string;
+}
 
+export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'disconnected';

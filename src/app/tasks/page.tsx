@@ -78,7 +78,7 @@ export default function TasksPage() {
         </svg>
       </button>
 
-      {isModalOpen && <QuickAddModal onClose={() => setIsModalOpen(false)} />}
+      {isModalOpen && <QuickAddModal defaultTab="task" onClose={() => setIsModalOpen(false)} />}
     </div>
   );
 }

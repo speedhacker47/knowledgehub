@@ -1,4 +1,4 @@
-import { HubItem, GoogleUserProfile } from '../types';
+import { HubItem, GoogleUserProfile, DriveStorageQuota } from '../types';
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '450139185140-m5so5qujpsbup5vu6odqepu6pqis74o8.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
@@ -51,7 +51,6 @@ export const getStoredAccessToken = (): string | null => {
   const expiresAt = localStorage.getItem(TOKEN_EXPIRY_KEY);
   if (!token || !expiresAt) return null;
 
-  // Check if expired (with 60s buffer)
   if (Date.now() > parseInt(expiresAt, 10) - 60000) {
     clearGoogleSession();
     return null;
@@ -110,6 +109,38 @@ export const fetchUserProfile = async (token: string): Promise<GoogleUserProfile
 };
 
 /**
+ * Fetch user's Google Drive Storage Quota
+ */
+export const fetchDriveStorageQuota = async (token: string): Promise<DriveStorageQuota | null> => {
+  try {
+    const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=storageQuota', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const quota = data.storageQuota;
+    if (!quota) return null;
+
+    const limitBytes = parseInt(quota.limit || '16106127360', 10); // default 15GB if unlimited
+    const usageBytes = parseInt(quota.usage || '0', 10);
+    const usageInDriveBytes = parseInt(quota.usageInDrive || '0', 10);
+    const usagePercent = limitBytes > 0 ? Math.min(100, Math.round((usageBytes / limitBytes) * 100)) : 0;
+
+    return {
+      limitBytes,
+      usageBytes,
+      usageInDriveBytes,
+      usagePercent,
+      formattedLimit: formatBytes(limitBytes),
+      formattedUsage: formatBytes(usageBytes),
+    };
+  } catch (err) {
+    console.error('Error fetching storage quota:', err);
+    return null;
+  }
+};
+
+/**
  * Request Google OAuth Access Token via popup
  */
 export const requestGoogleAuth = async (
@@ -155,7 +186,6 @@ export const requestGoogleAuth = async (
 export const getOrCreateHubFolder = async (token: string): Promise<string> => {
   const cachedFolderId = localStorage.getItem(FOLDER_ID_KEY);
   if (cachedFolderId) {
-    // Verify it still exists
     try {
       const verifyRes = await fetch(`https://www.googleapis.com/drive/v3/files/${cachedFolderId}?fields=id,trashed`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -165,11 +195,10 @@ export const getOrCreateHubFolder = async (token: string): Promise<string> => {
         if (!data.trashed) return data.id;
       }
     } catch {
-      // ignore & query fresh
+      // ignore
     }
   }
 
-  // Search for folder by name
   const query = encodeURIComponent(`name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
   const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -177,14 +206,13 @@ export const getOrCreateHubFolder = async (token: string): Promise<string> => {
   
   if (searchRes.ok) {
     const searchData = await searchRes.json();
-    if (searchData.files && searchData.files.length > 0) {
-      const folderId = searchData.files[0].id;
+    if (searchData.files && searchData.files.length > 0 && searchData.files[0].id) {
+      const folderId = searchData.files[0].id as string;
       localStorage.setItem(FOLDER_ID_KEY, folderId);
       return folderId;
     }
   }
 
-  // Create folder if not found
   const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
     method: 'POST',
     headers: {
@@ -202,7 +230,9 @@ export const getOrCreateHubFolder = async (token: string): Promise<string> => {
   }
 
   const folder = await createRes.json();
-  localStorage.setItem(FOLDER_ID_KEY, folder.id);
+  if (folder.id) {
+    localStorage.setItem(FOLDER_ID_KEY, folder.id);
+  }
   return folder.id;
 };
 
@@ -213,7 +243,6 @@ export const saveDatabaseToDrive = async (token: string, items: HubItem[]): Prom
   const folderId = await getOrCreateHubFolder(token);
   let dbFileId = localStorage.getItem(DB_FILE_ID_KEY);
 
-  // If we don't have dbFileId, search for it in the folder
   if (!dbFileId) {
     const query = encodeURIComponent(`name='${DB_FILE_NAME}' and '${folderId}' in parents and trashed=false`);
     const searchRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${query}&fields=files(id,name)`, {
@@ -272,7 +301,9 @@ export const saveDatabaseToDrive = async (token: string, items: HubItem[]): Prom
   }
 
   const result = await res.json();
-  localStorage.setItem(DB_FILE_ID_KEY, result.id);
+  if (result.id) {
+    localStorage.setItem(DB_FILE_ID_KEY, result.id);
+  }
   return result.id;
 };
 
@@ -290,11 +321,11 @@ export const loadDatabaseFromDrive = async (token: string): Promise<HubItem[] | 
   if (!searchRes.ok) return null;
   const searchData = await searchRes.json();
 
-  if (!searchData.files || searchData.files.length === 0) {
+  if (!searchData.files || searchData.files.length === 0 || !searchData.files[0].id) {
     return null;
   }
 
-  const fileId = searchData.files[0].id;
+  const fileId = searchData.files[0].id as string;
   localStorage.setItem(DB_FILE_ID_KEY, fileId);
 
   const downloadRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
@@ -311,11 +342,13 @@ export const loadDatabaseFromDrive = async (token: string): Promise<HubItem[] | 
 };
 
 /**
- * Upload a binary file (PDF, Image, Video, Audio, Doc) directly into the user's 'Knowledge Hub Files' Google Drive folder
+ * Upload a binary file or Blob directly into the user's 'Knowledge Hub Files' Google Drive folder
  */
 export const uploadFileToDrive = async (
   token: string,
-  file: File
+  fileOrBlob: File | Blob,
+  customFileName?: string,
+  customMimeType?: string
 ): Promise<{
   id: string;
   name: string;
@@ -326,16 +359,18 @@ export const uploadFileToDrive = async (
   thumbnailLink?: string;
 }> => {
   const folderId = await getOrCreateHubFolder(token);
+  const fileName = customFileName || (fileOrBlob as File).name || 'uploaded-file';
+  const mimeType = customMimeType || fileOrBlob.type || 'application/octet-stream';
 
   const metadata = {
-    name: file.name,
-    mimeType: file.type || 'application/octet-stream',
+    name: fileName,
+    mimeType: mimeType,
     parents: [folderId],
   };
 
   const form = new FormData();
   form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-  form.append('file', file);
+  form.append('file', fileOrBlob, fileName);
 
   const res = await fetch(
     'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,mimeType,size,webViewLink,webContentLink,thumbnailLink',
@@ -355,7 +390,7 @@ export const uploadFileToDrive = async (
 
   const fileData = await res.json();
 
-  // Make the file viewable via link for convenience if possible
+  // Try to set public read permission if allowed
   try {
     await fetch(`https://www.googleapis.com/drive/v3/files/${fileData.id}/permissions`, {
       method: 'POST',
@@ -369,19 +404,51 @@ export const uploadFileToDrive = async (
       }),
     });
   } catch (e) {
-    // Non-fatal if organization policy prevents public link
-    console.warn('Could not set public permission on Drive file:', e);
+    // ignore
   }
 
   return {
     id: fileData.id,
-    name: fileData.name || file.name,
-    mimeType: fileData.mimeType || file.type,
-    size: parseInt(fileData.size || file.size.toString(), 10),
+    name: fileData.name || fileName,
+    mimeType: fileData.mimeType || mimeType,
+    size: parseInt(fileData.size || fileOrBlob.size.toString(), 10),
     webViewLink: fileData.webViewLink || `https://drive.google.com/file/d/${fileData.id}/view`,
     webContentLink: fileData.webContentLink,
     thumbnailLink: fileData.thumbnailLink,
   };
+};
+
+/**
+ * Get high-res Google Favicon URL for a domain
+ */
+export const getFaviconUrl = (url: string): string => {
+  try {
+    const hostname = new URL(url).hostname;
+    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=128`;
+  } catch {
+    return `https://www.google.com/s2/favicons?domain=google.com&sz=128`;
+  }
+};
+
+/**
+ * Generate 1-click Google Calendar Event Link
+ */
+export const generateGoogleCalendarUrl = (title: string, details?: string, dueDate?: string): string => {
+  const baseUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
+  const encodedTitle = encodeURIComponent(title);
+  const encodedDetails = encodeURIComponent(details || 'Created from Knowledge Hub');
+
+  let dateParam = '';
+  if (dueDate) {
+    const date = new Date(dueDate);
+    const startIso = date.toISOString().replace(/-|:|\.\d+/g, '');
+    // End date 1 hour later
+    const endDate = new Date(date.getTime() + 60 * 60 * 1000);
+    const endIso = endDate.toISOString().replace(/-|:|\.\d+/g, '');
+    dateParam = `&dates=${startIso}/${endIso}`;
+  }
+
+  return `${baseUrl}&text=${encodedTitle}&details=${encodedDetails}${dateParam}`;
 };
 
 /**

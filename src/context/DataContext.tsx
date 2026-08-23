@@ -1,8 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
-import { HubItem, GoogleUserProfile, SyncStatus, Category } from '../types';
-import { initialDummyData } from '../utils/dummyData';
+import { HubItem, GoogleUserProfile, SyncStatus, Category, DriveStorageQuota } from '../types';
 import {
   getStoredAccessToken,
   getStoredUserProfile,
@@ -12,6 +11,7 @@ import {
   saveDatabaseToDrive,
   loadDatabaseFromDrive,
   uploadFileToDrive,
+  fetchDriveStorageQuota,
   formatBytes,
   loadGoogleScript,
 } from '../utils/googleDrive';
@@ -19,20 +19,26 @@ import {
 interface DataContextType {
   items: HubItem[];
   addItem: (item: Omit<HubItem, 'id' | 'dateAdded' | 'isDeleted'>) => void;
+  updateItem: (id: string, updates: Partial<HubItem>) => void;
+  togglePin: (id: string) => void;
   moveToRecycleBin: (id: string) => void;
   restoreItem: (id: string) => void;
   deletePermanently: (id: string) => void;
   exportData: () => void;
+  
   // Google Drive & Cloud Sync
   isGoogleConnected: boolean;
   userProfile: GoogleUserProfile | null;
   syncStatus: SyncStatus;
   lastSynced: string | null;
   syncError: string | null;
+  storageQuota: DriveStorageQuota | null;
   connectGoogle: () => Promise<void>;
   disconnectGoogle: () => void;
   syncWithDrive: () => Promise<void>;
-  uploadFileItem: (file: File, category?: Category, customTitle?: string) => Promise<HubItem>;
+  refreshStorageQuota: () => Promise<void>;
+  uploadFileItem: (file: File, category?: Category, customTitle?: string, tags?: string[]) => Promise<HubItem>;
+  uploadAudioMemo: (blob: Blob, title: string, duration?: number, tags?: string[]) => Promise<HubItem>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -47,24 +53,34 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [storageQuota, setStorageQuota] = useState<DriveStorageQuota | null>(null);
 
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialSyncDoneRef = useRef(false);
 
+  // Load Storage Quota
+  const refreshStorageQuota = useCallback(async () => {
+    const token = getStoredAccessToken();
+    if (!token) return;
+    try {
+      const quota = await fetchDriveStorageQuota(token);
+      if (quota) setStorageQuota(quota);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   // 1. Initial Local Data Load & Google Session Check
   useEffect(() => {
-    // Load local items
+    // Load local items (empty array by default, no dummy data)
     const saved = localStorage.getItem('hub_data');
     let loadedItems: HubItem[] = [];
     if (saved) {
       try {
         loadedItems = JSON.parse(saved);
       } catch {
-        loadedItems = initialDummyData;
+        loadedItems = [];
       }
-    } else {
-      loadedItems = initialDummyData;
-      localStorage.setItem('hub_data', JSON.stringify(initialDummyData));
     }
     setItems(loadedItems);
 
@@ -87,8 +103,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
       
-      // Attempt background cloud sync on app start
+      // Attempt background cloud sync and load quota
       syncCloudData(token, loadedItems);
+      fetchDriveStorageQuota(token).then(q => {
+        if (q) setStorageQuota(q);
+      });
     }
 
     setMounted(true);
@@ -119,7 +138,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const driveItems = await loadDatabaseFromDrive(token);
 
       if (driveItems && driveItems.length > 0) {
-        // Merge driveItems and localItems by ID (most recent wins)
         const itemMap = new Map<string, HubItem>();
         
         // Add Drive items
@@ -143,11 +161,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setItems(mergedItems);
         localStorage.setItem('hub_data', JSON.stringify(mergedItems));
-        
-        // Also ensure drive has the latest merged state
         await saveDatabaseToDrive(token, mergedItems);
-      } else {
-        // Drive has no file yet, push local items to Drive
+      } else if (localItems.length > 0) {
         await saveDatabaseToDrive(token, localItems);
       }
 
@@ -156,6 +171,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('gdrive_last_synced', now);
       setSyncStatus('synced');
       isInitialSyncDoneRef.current = true;
+
+      // Update storage quota
+      const quota = await fetchDriveStorageQuota(token);
+      if (quota) setStorageQuota(quota);
     } catch (err: any) {
       console.error('Cloud sync error:', err);
       setSyncStatus('error');
@@ -187,7 +206,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         async (token, profile) => {
           setIsGoogleConnected(true);
           setUserProfile(profile);
-          // Sync with drive
           await syncCloudData(token, items);
         },
         (err) => {
@@ -208,6 +226,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUserProfile(null);
     setSyncStatus('disconnected');
     setLastSynced(null);
+    setStorageQuota(null);
   }, []);
 
   // Manual Trigger Sync
@@ -221,7 +240,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [connectGoogle, items]);
 
   // Upload a file directly to Google Drive
-  const uploadFileItem = async (file: File, category?: Category, customTitle?: string): Promise<HubItem> => {
+  const uploadFileItem = async (
+    file: File,
+    category?: Category,
+    customTitle?: string,
+    tags?: string[]
+  ): Promise<HubItem> => {
     const token = getStoredAccessToken();
     if (!token) {
       throw new Error('Please connect your Google Drive first to upload files.');
@@ -231,13 +255,12 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const driveFile = await uploadFileToDrive(token, file);
 
-      // Determine category if not explicitly provided
-      let itemType: Category = category || 'Web Link';
+      let itemType: Category = category || 'Document';
       if (!category || category === 'All') {
         if (file.type.startsWith('video/')) itemType = 'Video';
         else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) itemType = 'PDF';
-        else if (file.type.startsWith('image/')) itemType = 'Web Link';
-        else itemType = 'Web Link';
+        else if (file.type.startsWith('audio/')) itemType = 'Audio';
+        else itemType = 'Document';
       }
 
       const newItem: HubItem = {
@@ -245,9 +268,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         type: itemType,
         title: customTitle?.trim() || file.name,
         content: driveFile.webViewLink || `https://drive.google.com/file/d/${driveFile.id}/view`,
-        previewImage: driveFile.thumbnailLink || (file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined),
+        previewImage: driveFile.thumbnailLink,
         dateAdded: new Date().toISOString(),
         isDeleted: false,
+        tags: tags || [],
         driveFileId: driveFile.id,
         driveWebViewLink: driveFile.webViewLink,
         driveWebContentLink: driveFile.webContentLink,
@@ -258,12 +282,57 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setItems(prev => [newItem, ...prev]);
       setSyncStatus('synced');
+      refreshStorageQuota();
       return newItem;
     } catch (err: any) {
       setSyncStatus('error');
       setSyncError(err.message || 'File upload failed');
       throw err;
     }
+  };
+
+  // Upload Voice Memo / Audio Blob to Google Drive
+  const uploadAudioMemo = async (
+    blob: Blob,
+    title: string,
+    duration?: number,
+    tags?: string[]
+  ): Promise<HubItem> => {
+    const token = getStoredAccessToken();
+    const fileName = `Voice-Memo-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`;
+
+    let driveData: any = null;
+    if (token) {
+      setSyncStatus('syncing');
+      try {
+        driveData = await uploadFileToDrive(token, blob, fileName, 'audio/webm');
+      } catch (err) {
+        console.warn('Could not upload audio to Google Drive, saving locally:', err);
+      }
+    }
+
+    const newItem: HubItem = {
+      id: crypto.randomUUID(),
+      type: 'Audio',
+      title: title.trim() || 'Voice Memo',
+      content: driveData?.webViewLink || 'Recorded voice memo',
+      dateAdded: new Date().toISOString(),
+      isDeleted: false,
+      tags: tags || ['#voicememo'],
+      audioDuration: duration || 0,
+      driveFileId: driveData?.id,
+      driveWebViewLink: driveData?.webViewLink,
+      fileName: fileName,
+      fileSize: formatBytes(blob.size),
+      mimeType: 'audio/webm',
+    };
+
+    setItems(prev => [newItem, ...prev]);
+    if (token) {
+      setSyncStatus('synced');
+      refreshStorageQuota();
+    }
+    return newItem;
   };
 
   const addItem = (item: Omit<HubItem, 'id' | 'dateAdded' | 'isDeleted'>) => {
@@ -274,6 +343,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isDeleted: false,
     };
     setItems(prev => [newItem, ...prev]);
+  };
+
+  const updateItem = (id: string, updates: Partial<HubItem>) => {
+    setItems(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+  };
+
+  const togglePin = (id: string) => {
+    setItems(prev => prev.map(item => item.id === id ? { ...item, isPinned: !item.isPinned } : item));
   };
 
   const moveToRecycleBin = (id: string) => {
@@ -305,6 +382,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <DataContext.Provider value={{
       items,
       addItem,
+      updateItem,
+      togglePin,
       moveToRecycleBin,
       restoreItem,
       deletePermanently,
@@ -314,10 +393,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       syncStatus,
       lastSynced,
       syncError,
+      storageQuota,
       connectGoogle,
       disconnectGoogle,
       syncWithDrive,
+      refreshStorageQuota,
       uploadFileItem,
+      uploadAudioMemo,
     }}>
       {children}
     </DataContext.Provider>
