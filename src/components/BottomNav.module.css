@@ -1,0 +1,110 @@
+.bottomNav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--mobile-bottom-nav-height) + var(--safe-area-bottom));
+  padding-bottom: var(--safe-area-bottom);
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  z-index: 900;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.05);
+}
+
+@media (max-width: 768px) {
+  .bottomNav {
+    display: block;
+  }
+}
+
+.navContainer {
+  display: flex;
+  height: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+  align-items: center;
+  justify-content: space-around;
+  padding: 0 var(--spacing-sm);
+}
+
+.navItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex: 1;
+  height: 100%;
+  padding: 6px 0;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  position: relative;
+  user-select: none;
+}
+
+.iconWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.iconWrapper svg {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.2s ease;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  transition: color 0.2s ease, font-weight 0.2s ease;
+}
+
+.badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background-color: var(--accent-color);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Active State */
+.navItem.active {
+  color: var(--accent-color);
+}
+
+.navItem.active .iconWrapper {
+  background-color: rgba(var(--accent-color), 0.12);
+  transform: translateY(-1px);
+}
+
+.navItem.active .iconWrapper svg {
+  stroke-width: 2.3;
+}
+
+.navItem.active .label {
+  font-weight: 700;
+  color: var(--accent-color);
+}
+
+/* Tap active effect */
+.navItem:active .iconWrapper {
+  transform: scale(0.92);
+}

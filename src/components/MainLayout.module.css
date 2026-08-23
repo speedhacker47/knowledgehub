@@ -1,14 +1,105 @@
 .layout {
   display: flex;
-  width: 100vw;
-  height: 100vh;
-  overflow: hidden;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: var(--bg-primary);
+  position: relative;
+  overflow-x: hidden;
 }
 
+/* Mobile Top App Bar */
+.mobileHeader {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--mobile-header-height) + var(--safe-area-top));
+  padding-top: var(--safe-area-top);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  z-index: 800;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: var(--spacing-md);
+  padding-right: var(--spacing-md);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.menuButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  transition: background-color 0.2s ease;
+}
+
+.menuButton:hover,
+.menuButton:active {
+  background-color: rgba(var(--text-primary), 0.08);
+}
+
+.mobileBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--accent-color);
+}
+
+.mobileBrand svg {
+  flex-shrink: 0;
+}
+
+.mobileActions {
+  width: 40px;
+}
+
+/* Main Content Area */
 .main {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: var(--spacing-xl);
+  min-width: 0;
 }
+
+.contentContainer {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 768px) {
+  .layout {
+    flex-direction: column;
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .mobileHeader {
+    display: flex;
+  }
+
+  .main {
+    height: auto;
+    min-height: 100dvh;
+    padding: calc(var(--mobile-header-height) + var(--safe-area-top) + var(--spacing-md)) var(--spacing-md) calc(var(--mobile-bottom-nav-height) + var(--safe-area-bottom) + var(--spacing-xl)) var(--spacing-md);
+    overflow-y: visible;
+  }
+
+  .contentContainer {
+    width: 100%;
+  }
+}
+
