@@ -3,7 +3,7 @@ import { HubItem, GoogleUserProfile, DriveStorageQuota } from '../types';
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '450139185140-m5so5qujpsbup5vu6odqepu6pqis74o8.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
 
-const FOLDER_NAME = 'Knowledge Hub Files';
+const FOLDER_NAME = 'dpocket Files';
 const DB_FILE_NAME = 'knowledge_hub_data.json';
 
 const TOKEN_KEY = 'gdrive_access_token';
@@ -181,7 +181,7 @@ export const requestGoogleAuth = async (
 };
 
 /**
- * Find or create the dedicated 'Knowledge Hub Files' folder in user's Google Drive
+ * Find or create the dedicated 'dpocket Files' folder in user's Google Drive
  */
 export const getOrCreateHubFolder = async (token: string): Promise<string> => {
   const cachedFolderId = localStorage.getItem(FOLDER_ID_KEY);
@@ -226,7 +226,7 @@ export const getOrCreateHubFolder = async (token: string): Promise<string> => {
   });
 
   if (!createRes.ok) {
-    throw new Error('Failed to create Knowledge Hub folder in Google Drive');
+    throw new Error('Failed to create dpocket folder in Google Drive');
   }
 
   const folder = await createRes.json();
@@ -237,7 +237,7 @@ export const getOrCreateHubFolder = async (token: string): Promise<string> => {
 };
 
 /**
- * Save / Update Knowledge Hub database JSON in Google Drive
+ * Save / Update dpocket database JSON in Google Drive
  */
 export const saveDatabaseToDrive = async (token: string, items: HubItem[]): Promise<string> => {
   const folderId = await getOrCreateHubFolder(token);
@@ -308,7 +308,7 @@ export const saveDatabaseToDrive = async (token: string, items: HubItem[]): Prom
 };
 
 /**
- * Load Knowledge Hub database JSON from Google Drive
+ * Load dpocket database JSON from Google Drive
  */
 export const loadDatabaseFromDrive = async (token: string): Promise<HubItem[] | null> => {
   const folderId = await getOrCreateHubFolder(token);
@@ -342,7 +342,7 @@ export const loadDatabaseFromDrive = async (token: string): Promise<HubItem[] | 
 };
 
 /**
- * Upload a binary file or Blob directly into the user's 'Knowledge Hub Files' Google Drive folder
+ * Upload a binary file or Blob directly into the user's 'dpocket Files' Google Drive folder
  */
 export const uploadFileToDrive = async (
   token: string,
@@ -436,7 +436,7 @@ export const getFaviconUrl = (url: string): string => {
 export const generateGoogleCalendarUrl = (title: string, details?: string, dueDate?: string): string => {
   const baseUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
   const encodedTitle = encodeURIComponent(title);
-  const encodedDetails = encodeURIComponent(details || 'Created from Knowledge Hub');
+  const encodedDetails = encodeURIComponent(details || 'Created from dpocket');
 
   let dateParam = '';
   if (dueDate) {

@@ -5,6 +5,7 @@ import { useData } from '../context/DataContext';
 import { useAppContext } from '../context/ThemeContext';
 import { HubItemCard } from '../components/HubItemCard';
 import { QuickAddModal } from '../components/QuickAddModal';
+import { SmartInsightsBanner } from '../components/SmartInsightsBanner';
 import { Category } from '../types';
 import styles from './page.module.css';
 
@@ -77,7 +78,7 @@ export default function Dashboard() {
       {/* Top Header */}
       <header className={styles.header}>
         <div className={styles.headerTitleGroup}>
-          <h1 className={styles.title}>Knowledge Hub</h1>
+          <h1 className={styles.title}>dpocket</h1>
           <p className={styles.subtitle}>
             {activeItems.length} {activeItems.length === 1 ? 'item' : 'items'} saved in your workspace
           </p>
@@ -111,6 +112,9 @@ export default function Dashboard() {
           </button>
         </div>
       </header>
+
+      {/* Proactive Background AI Intelligence Banner */}
+      <SmartInsightsBanner />
 
       {/* Search Bar */}
       <div className={styles.searchContainer}>

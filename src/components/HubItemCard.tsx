@@ -5,6 +5,7 @@ import { HubItem } from '../types';
 import { useAppContext } from '../context/ThemeContext';
 import { useData } from '../context/DataContext';
 import { generateGoogleCalendarUrl } from '../utils/googleDrive';
+import { useMagicPortal } from '../context/MagicPortalContext';
 import styles from './HubItemCard.module.css';
 
 interface HubItemCardProps {
@@ -15,6 +16,7 @@ interface HubItemCardProps {
 export const HubItemCard: React.FC<HubItemCardProps> = ({ item, onTagClick }) => {
   const { layoutView } = useAppContext();
   const { moveToRecycleBin, restoreItem, deletePermanently, togglePin, updateItem } = useData();
+  const { startDrag, endDrag } = useMagicPortal();
   const [isCopied, setIsCopied] = useState(false);
 
   const isGrid = layoutView === 'grid';
@@ -79,7 +81,15 @@ export const HubItemCard: React.FC<HubItemCardProps> = ({ item, onTagClick }) =>
   const colorClass = item.color && item.color !== 'default' ? styles[`color_${item.color}`] : '';
 
   return (
-    <div className={`${styles.card} ${isGrid ? styles.grid : styles.list} ${colorClass}`}>
+    <div 
+      className={`${styles.card} ${isGrid ? styles.grid : styles.list} ${colorClass}`}
+      draggable={!isDeleted}
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', item.id);
+        startDrag(item);
+      }}
+      onDragEnd={() => endDrag()}
+    >
       {/* Pinned Indicator */}
       {item.isPinned && (
         <div className={styles.pinnedPin} title="Pinned to top">

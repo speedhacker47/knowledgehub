@@ -2,20 +2,28 @@
 
 :root {
   /* Default Theme (Light) */
-  --bg-primary: #f8fafc;
+  --bg-primary: #f0fdfa; /* subtle mint/cyan tint instead of slate */
   --bg-secondary: #ffffff;
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --border-color: #e2e8f0;
   
-  /* Accent Colors (Dynamic) */
+  /* Accent Colors (Dynamic & Vibrant) */
   --accent-blue: #3b82f6;
   --accent-emerald: #10b981;
   --accent-violet: #8b5cf6;
   --accent-rose: #f43f5e;
   
+  /* Gradients */
+  --gradient-blue: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  --gradient-emerald: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  --gradient-violet: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  --gradient-rose: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  --gradient-primary: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+  
   /* Default Accent */
   --accent-color: var(--accent-blue);
+  --accent-gradient: var(--gradient-blue);
   
   /* Font Sizes */
   --font-small: 14px;
@@ -52,17 +60,17 @@
 }
 
 [data-theme='dark'] {
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
+  --bg-primary: #020617;
+  --bg-secondary: #0f172a;
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
-  --border-color: #334155;
+  --border-color: #1e293b;
 }
 
-[data-accent='blue'] { --accent-color: var(--accent-blue); }
-[data-accent='emerald'] { --accent-color: var(--accent-emerald); }
-[data-accent='violet'] { --accent-color: var(--accent-violet); }
-[data-accent='rose'] { --accent-color: var(--accent-rose); }
+[data-accent='blue'] { --accent-color: var(--accent-blue); --accent-gradient: var(--gradient-blue); }
+[data-accent='emerald'] { --accent-color: var(--accent-emerald); --accent-gradient: var(--gradient-emerald); }
+[data-accent='violet'] { --accent-color: var(--accent-violet); --accent-gradient: var(--gradient-violet); }
+[data-accent='rose'] { --accent-color: var(--accent-rose); --accent-gradient: var(--gradient-rose); }
 
 [data-font-size='small'] { --font-base: var(--font-small); }
 [data-font-size='medium'] { --font-base: var(--font-medium); }
@@ -82,9 +90,13 @@ html, body {
 }
 
 body {
-  background-color: var(--bg-primary);
+  background: var(--bg-primary);
+  background-image: 
+    radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(236, 72, 153, 0.08), transparent 25%);
+  background-attachment: fixed;
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   font-size: var(--font-base);
   transition: background-color 0.3s ease, color 0.3s ease, font-size 0.3s ease;
   overflow-x: hidden;
@@ -116,8 +128,14 @@ button {
 
 /* Glassmorphism utility */
 .glass {
-  background: rgba(var(--bg-secondary), 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] .glass {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }

@@ -57,3 +57,31 @@ export interface DriveStorageQuota {
 }
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'error' | 'disconnected';
+
+export type InsightType = 
+  | 'briefing' 
+  | 'duplicate_merge' 
+  | 'hidden_deadline' 
+  | 'contradiction' 
+  | 'priority_link';
+
+export interface AIInsight {
+  id: string;
+  type: InsightType;
+  title: string;
+  description: string;
+  confidence?: number;
+  relatedItemIds: string[];
+  actionType: 'create_task' | 'merge_items' | 'dismiss' | 'open_link' | 'view_item';
+  actionPayload?: {
+    taskTitle?: string;
+    dueDate?: string;
+    mergedNoteBody?: string;
+    targetItemId?: string;
+    sourceItemId?: string;
+    linkUrl?: string;
+  };
+  createdAt: string;
+  isDismissed?: boolean;
+  isApplied?: boolean;
+}

@@ -24,7 +24,7 @@ export const LoadingScreen = () => {
         <div className={styles.body} />
         <div className={`${styles.wing} ${styles.wingRight}`} />
       </div>
-      <h2 className={styles.text}>Loading your knowledge hub...</h2>
+      <h2 className={styles.text}>Loading your dpocket...</h2>
     </div>
   );
 };

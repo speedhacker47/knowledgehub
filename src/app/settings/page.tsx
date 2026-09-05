@@ -95,7 +95,7 @@ export default function Settings() {
               <div className={styles.infoGrid}>
                 <div className={styles.infoCard}>
                   <span className={styles.infoLabel}>Drive Folder</span>
-                  <strong className={styles.infoValue}>📁 Knowledge Hub Files</strong>
+                  <strong className={styles.infoValue}>📁 dpocket Files</strong>
                 </div>
                 <div className={styles.infoCard}>
                   <span className={styles.infoLabel}>JSON Database</span>
